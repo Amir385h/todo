@@ -15,8 +15,46 @@ jobs:
           java-version: 17
       - run: npm install
       - run: npx expo prebuild --platform android
+
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/my-release-key.keystore
+
+      - name: Add signing config
+        run: |
+          cat >> android/gradle.properties << EOF
+          MYAPP_UPLOAD_STORE_FILE=my-release-key.keystore
+          MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.KEY_ALIAS }}
+          MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
+          MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}
+          EOF
+
+      - name: Configure signing in build.gradle
+        run: |
+          python3 - << 'PYEOF'
+          import re
+          path = "android/app/build.gradle"
+          with open(path) as f:
+              content = f.read()
+
+          signing_block = '''
+              signingConfigs {
+                  release {
+                      storeFile file(MYAPP_UPLOAD_STORE_FILE)
+                      storePassword MYAPP_UPLOAD_STORE_PASSWORD
+                      keyAlias MYAPP_UPLOAD_KEY_ALIAS
+                      keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+                  }
+              }
+          '''
+          content = content.replace("android {", "android {\n" + signing_block, 1)
+          content = re.sub(r"(buildTypes\s*\{\s*release\s*\{)", r"\1\n            signingConfig signingConfigs.release", content)
+
+          with open(path, "w") as f:
+              f.write(content)
+          PYEOF
+
       - run: cd android && ./gradlew assembleRelease
       - uses: actions/upload-artifact@v4
         with:
-          name: app-release
+          name: app-release-signed
           path: android/app/build/outputs/apk/release/app-release.apk
