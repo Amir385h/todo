@@ -46,8 +46,9 @@ jobs:
                   }
               }
           '''
+
           content = content.replace("android {", "android {\n" + signing_block, 1)
-          content = re.sub(r"(buildTypes\s*\{\s*release\s*\{)", r"\1\n            signingConfig signingConfigs.release", content)
+          content = content.replace("signingConfig signingConfigs.debug", "signingConfig signingConfigs.release")
 
           with open(path, "w") as f:
               f.write(content)
