@@ -16,6 +16,22 @@ jobs:
       - run: npm install
       - run: npx expo prebuild --platform android
 
+      - name: Show permission BEFORE removal
+        run: grep -n "SYSTEM_ALERT_WINDOW" android/app/src/main/AndroidManifest.xml || echo "NOT FOUND before removal"
+
+      - name: Remove SYSTEM_ALERT_WINDOW permission
+        run: |
+          sed -i '/SYSTEM_ALERT_WINDOW/d' android/app/src/main/AndroidManifest.xml
+
+      - name: Verify permission AFTER removal
+        run: |
+          if grep -q "SYSTEM_ALERT_WINDOW" android/app/src/main/AndroidManifest.xml; then
+            echo "❌ STILL PRESENT - removal failed"
+            exit 1
+          else
+            echo "✅ SUCCESSFULLY REMOVED"
+          fi
+
       - name: Decode keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/my-release-key.keystore
 
